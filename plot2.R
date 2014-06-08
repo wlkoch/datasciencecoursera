@@ -16,7 +16,7 @@
 # the power readings.                                                           #
 
 
-# set directory to R code files
+#  set directory to R code files
 
 setwd("C:/Research/Coursera/DataScientist_Series/Class_05_ExploratoryDataAnalysis/Project_1/")
 
