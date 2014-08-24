@@ -1,4 +1,4 @@
-# Plotting Project for Exploratory Data Analysis with Roger Peng
+# Machine Learning/Forecasting Project with Roger Leek
 
-## Project 1: Make four plots using data from UCI Household Power Usage dataset
+## Project: Utilizing a dataset from HAR, predict exercise movements
 

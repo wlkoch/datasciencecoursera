@@ -1,0 +1,313 @@
+---
+title: 'Prediction Analysis: Personal Exersize Classifications'
+output: html_document
+---
+
+## Executive Summary:
+
+Utilizing a dataset extracted from *Human Activity Recognition* (http://groupware.les.inf.puc-rio.br/har), the purpose of this exercise is to construct a classification algorithm to predict different types of weightlifting exercises from body sensors. Initially several classification algorithms were tested on a training data set to determining which method resulted in the highest accuracy.  Cross-validation was then performed comparing the best estimator with the next best.  The final model used the C4.5 algorithm developed by Ross Quinlan to generate a decision tree using the concept of *information entropy*.  The resulting model resulted in an accuracy of >= .95 which was significantly better than the Classification and Regression Trees (CART) and linear discriminant analysis (LDA) available in the **caret** library in R.
+
+## Brief Data set description 
+
+Data were collected on six participants fitted with various body-sensors (arm, belt, forearm, and dumbbell) that collected data on movements the the X,Y, and Z directions.  At the same time, the exercise they were actually performing was noted.  These included classification (A) *correctly* performing the activity, and *incorrectly* (B) : Elbows thrown to front, (C) dumbell lifted only halfway, (D) dumbell lowered only halfway, (E) and hips thrown to the front.
+
+
+## Data Source:
+Ugulino, W.; Cardador, D.; Vega, K.; Velloso, E.; Milidiu, R.; Fuks, H. Wearable Computing: Accelerometers' Data Classification of Body Postures and Movements. Proceedings of 21st Brazilian Symposium on Artificial Intelligence. Advances in Artificial Intelligence - SBIA 2012. In: Lecture Notes in Computer Science. , pp. 52-61. Curitiba, PR: Springer Berlin / Heidelberg, 2012. ISBN 978-3-642-34458-9. DOI: 10.1007/978-3-642-34459-6_6.
+
+
+## Data Cleaning:
+
+The trainingData set was examined and found to contain a number of factor variables which needed to be transformed into numeric format to be usable for the classification algorithm.
+
+
+```{r Load in project data and libraries to be used}
+#Read in data and perform some exploratory analyses and clean up data
+
+
+# load in libraries to be used in analysis
+library(caret)
+library(rattle)
+library(MASS)
+library(klaR)
+library(randomForest)
+
+# load in training data
+trainingData <- read.csv("C:/Research/Coursera/DataScientist_Series/Class_08_PracticalMachineLearning/MachineLearningProject/pml-training.csv")
+
+
+table(trainingData$user_name, trainingData$classe)
+
+#str(trainingData, list.len = 170)
+
+# transform factors into numberic data
+trainingData$kurtosis_roll_belt <- as.numeric(as.character(trainingData$kurtosis_roll_belt))
+trainingData$kurtosis_picth_belt <- as.numeric(as.character(trainingData$kurtosis_picth_belt))
+trainingData$kurtosis_yaw_belt <- as.numeric(as.character(trainingData$kurtosis_yaw_belt))
+trainingData$skewness_roll_belt <- as.numeric(as.character(trainingData$skewness_roll_belt))
+trainingData$skewness_roll_belt.1 <- as.numeric(as.character(trainingData$skewness_roll_belt.1))
+trainingData$skewness_yaw_belt <- as.numeric(as.character(trainingData$skewness_yaw_belt))
+trainingData$max_yaw_belt <- as.numeric(as.character(trainingData$max_yaw_belt))
+trainingData$min_yaw_belt <-  as.numeric(as.character(trainingData$min_yaw_belt))
+trainingData$amplitude_yaw_belt <-  as.numeric(as.character(trainingData$amplitude_yaw_belt))
+
+trainingData$kurtosis_roll_arm <-  as.numeric(as.character(trainingData$kurtosis_roll_arm))
+trainingData$kurtosis_picth_arm <-  as.numeric(as.character(trainingData$kurtosis_picth_arm))
+trainingData$kurtosis_yaw_arm  <-  as.numeric(as.character(trainingData$kurtosis_yaw_arm))
+trainingData$skewness_roll_arm  <-   as.numeric(as.character(trainingData$skewness_roll_arm))
+trainingData$skewness_pitch_arm  <-  as.numeric(as.character(trainingData$skewness_pitch_arm))
+trainingData$skewness_yaw_arm  <-  as.numeric(as.character(trainingData$skewness_yaw_arm))
+
+trainingData$kurtosis_roll_dumbbell <-  as.numeric(as.character(trainingData$kurtosis_roll_dumbbell))
+trainingData$kurtosis_picth_dumbbell <-  as.numeric(as.character(trainingData$kurtosis_picth_dumbbell))
+trainingData$kurtosis_yaw_dumbbell <-  as.numeric(as.character(trainingData$kurtosis_yaw_dumbbell))
+trainingData$skewness_roll_dumbbell <-  as.numeric(as.character(trainingData$skewness_roll_dumbbell))
+trainingData$skewness_pitch_dumbbell <-  as.numeric(as.character(trainingData$skewness_pitch_dumbbell))
+trainingData$skewness_yaw_dumbbell <-  as.numeric(as.character(trainingData$skewness_yaw_dumbbell))
+trainingData$max_yaw_dumbbell <-  as.numeric(as.character(trainingData$max_yaw_dumbbell))
+trainingData$min_yaw_dumbbell <-  as.numeric(as.character(trainingData$min_yaw_dumbbell))
+trainingData$amplitude_yaw_dumbbell <-  as.numeric(as.character(trainingData$amplitude_yaw_dumbbell))
+
+trainingData$kurtosis_roll_forearm <- as.numeric(as.character(trainingData$kurtosis_roll_forearm))
+trainingData$kurtosis_picth_forearm <- as.numeric(as.character(trainingData$kurtosis_picth_forearm))
+trainingData$kurtosis_yaw_forearm  <- as.numeric(as.character(trainingData$kurtosis_yaw_forearm))
+trainingData$skewness_roll_forearm  <- as.numeric(as.character(trainingData$skewness_roll_forearm))
+trainingData$skewness_pitch_forearm  <- as.numeric(as.character(trainingData$skewness_pitch_forearm))
+trainingData$skewness_yaw_forearm  <- as.numeric(as.character(trainingData$skewness_yaw_forearm))
+trainingData$max_yaw_forearm  <- as.numeric(as.character(trainingData$max_yaw_forearm))
+trainingData$min_yaw_forearm  <- as.numeric(as.character(trainingData$min_yaw_forearm))
+trainingData$amplitude_yaw_forearm <- as.numeric(as.character(trainingData$amplitude_yaw_forearm))
+
+#summary(trainingData)
+
+```
+
+
+## Model Variable determination:
+
+After the data have been read in and transformed appropriately, a summary of the data was printed out to see what data were still missing.  Those variables which indicated a large number of missing values would not be included in the model to estimated.  After examining the summary output, the following variables were  included in the model.
+
+```{r Keep predictor variables}
+
+xvars <- cbind(         "roll_belt",	"pitch_belt", 	 	"yaw_belt",	"total_accel_belt",
+			"gyros_belt_x",	"gyros_belt_y",	        "gyros_belt_z",
+        		"accel_belt_x",   "accel_belt_y",     	"accel_belt_z",
+			"magnet_belt_x","magnet_belt_y",	"magnet_belt_z",
+			"roll_arm",	"pitch_arm",         	"yaw_arm",	"total_accel_arm",
+			"gyros_arm_x",	"gyros_arm_y",		"gyros_arm_z",	
+			"accel_arm_x",	"accel_arm_y",		"accel_arm_z",
+			"magnet_arm_x",  "magnet_arm_y",	"magnet_arm_z",
+			"roll_dumbbell", "pitch_dumbbell",	"yaw_dumbbell",  "total_accel_dumbbell",
+			"gyros_dumbbell_x","gyros_dumbbell_y",	"gyros_dumbbell_z",	
+			"accel_dumbbell_x","accel_dumbbell_y",	"accel_dumbbell_z",
+			"magnet_dumbbell_x","magnet_dumbbell_y","magnet_dumbbell_z",
+			"roll_forearm",	"pitch_forearm",	"yaw_forearm",	  "total_accel_forearm",
+			"gyros_forearm_x", "gyros_forearm_y",	"gyros_forearm_z",
+			"accel_forearm_x", "accel_forearm_y",	"accel_forearm_z",
+			"magnet_forearm_x","magnet_forearm_y",	"magnet_forearm_z")
+
+
+# Create string with left-hand-side and right-hand-side variables of model to be estimated
+
+model_main.form.text <- paste("classe ~ ",paste(xvars,collapse=" + "),collapse=" ")
+model_main.form <- as.formula( model_main.form.text )
+
+```
+
+
+## Model comparisons:
+
+
+Initially a **CART** model using the *method=rpart* in the **caret** package in **R** was estimated.
+
+```{r Training model using rpart}
+
+set.seed(8)
+model_rp <- train( model_main.form, method = "rpart", data=trainingData)
+model_rp
+fancyRpartPlot(model_rp$finalModel)
+
+```
+
+As can be seen from the results, accuracy was only .501 and the tree diagram indicates classification "D" was completely missed.
+
+The next model estimated used the *method=rpart2* which is a variation of *rpart*.
+
+```{r Training model using rpart2}
+
+
+set.seed(88)
+model_rp2 <- train( model_main.form, method = "rpart2", data=trainingData)
+model_rp2
+fancyRpartPlot(model_rp2$finalModel)
+
+```
+
+With a maximum depth of 5, rpart2 results in an accuracy = .539 and is able to capture all the classifications as indicated by the plot.  However, the accuracy is still poor.
+
+Next, a classification model was estimated using the linear discriminant analysis option (method = lda) in the **caret** library.
+
+```{r Training model using lda}
+
+set.seed(888)
+model_lda <- train( model_main.form, method = "lda", data=trainingData)
+model_lda
+
+model_lda$results[2]
+
+
+trainingData$Correct_Prediction <- plda == trainingData$classe
+qplot(roll_belt, 
+        pitch_forearm, 
+	color = Correct_Prediction, 
+	data = trainingData,
+	main = "Linear Discriminant Analysis Classification Method")
+
+```
+No pre-processing was performed on the data.  However, a bootstrap-resampling was performed with 25 repetitions.  The results indicate a much better (but still relatively poor) accuracy = .703  The resulting plot, using the top-level predictors in the *method=rpart* (Recursive Partitioning and Regression Trees) analysis  - **pitch_forearm** and **roll_belt** - with color-coded prediction result reflects the accuracy result. Visually, the aggregated blue-dot *TRUE*s are greater than the red-dot *FALSE*s but still a certain amount of mis-classification.   
+
+Finally, a classification model was estimated using the C4.5-like Trees algorithm with the *method=J48* option in **caret**.
+
+```{r Training model using J48}
+
+set.seed(8888)
+model_J48 <- train( model_main.form, method = "J48", data=trainingData)
+model_J48
+
+model_J48$results[2]
+
+
+
+trainingData$Correct_Prediction <- pJ48 == trainingData$classe
+qplot(roll_belt, 
+        pitch_forearm, 
+	color = Correct_Prediction, 
+	data = trainingData,
+	main = "C4.5-like Trees Classification Method (Information Entropy)")
+
+```
+
+
+This produce the best results with an accuracy = .951  
+
+As with the LDA model, a plot with the main *rpart* variables, color-coded by prediction accuracy, was made.  In this instance, the higher accuracy is clearly indicated with only a few red-coded dots indicating a mis-classification.
+
+Finally, as another comparison of the LDA and J48 models, two tables were constructed.
+
+To compare the predictions of the LDA and J48 models, simple tables were printed out comparing the predictions with the actual classification values in the training data set.  The results are below.
+
+```{r Compare J48 and lda methods}
+
+pred_lda <- predict(model_lda, trainingData)
+pred_J48 <- predict(model_J48, trainingData)
+
+table(pred_lda, trainingData$classe)
+table(pred_J48, trainingData$classe)
+
+```
+
+As is indicated, the J48 model, while not perfect, indicates a much higher agreement of the prediction with the actual value than does the linear discriminant analysis (lda) model. 
+
+
+
+## Cross-validation test:
+
+A cross-validation was then performed comparing the J48 model with the LDA model using a K-folds partition method with K = 3.  Using the trainingData, 3 partitions were created with training and testing components.  Both the J48 and LDA models were then run on all 3 folds, and predictions were performed.  Finally, the accuracy of the J48 and LDA models were averaged across the 3 folds.  
+
+```{r Cross-validation using K-folds method }
+
+
+
+set.seed(88888)
+folds_train <- createFolds(        y=trainingData$classe,
+					k=3,
+					list=TRUE,
+					returnTrain = TRUE)
+
+set.seed(88888)
+folds_test <- createFolds(	y=trainingData$classe,
+					k=3,
+					list=TRUE,
+					returnTrain = FALSE)
+
+cv_train1 <- trainingData[folds_train[[1]],]
+cv_train2 <- trainingData[folds_train[[2]],]
+cv_train3 <- trainingData[folds_train[[3]],]
+
+cv_test1 <- trainingData[folds_test[[1]],]
+cv_test2 <- trainingData[folds_test[[2]],]
+cv_test3 <- trainingData[folds_test[[3]],]
+
+
+
+set.seed(888)
+model_lda_cv_train1 <- train(	model_main.form, method = "lda", data=cv_train1)
+
+set.seed(888)
+model_lda_cv_train2 <- train(	model_main.form, method = "lda", data=cv_train2)
+
+set.seed(888)
+model_lda_cv_train3 <- train(	model_main.form, method = "lda", data=cv_train3)
+
+p_1_lda <- predict(model_lda_cv_train1, cv_test1)
+p_2_lda <- predict(model_lda_cv_train2, cv_test2)
+p_3_lda <- predict(model_lda_cv_train3, cv_test3)
+
+
+set.seed(888)
+model_J48_cv_train1 <- train(	model_main.form, method = "J48", data=cv_train1)
+
+set.seed(888)
+model_J48_cv_train2 <- train(	model_main.form, method = "J48", data=cv_train2)
+
+set.seed(888)
+model_J48_cv_train3 <- train(	model_main.form, method = "J48", data=cv_train3)
+
+p_1_J48 <- predict(model_J48_cv_train1, cv_test1)
+p_2_J48 <- predict(model_J48_cv_train2, cv_test2)
+p_3_J48 <- predict(model_J48_cv_train3, cv_test3)
+
+
+```
+
+The accuracy of the J48 and LDA models were averaged across the 3 folds.
+
+```{r compare cross-validation results }
+
+# mean of accuracy for method=lda across 3-folds
+
+mean( c(        confusionMatrix(p_1_lda, cv_test1$classe)$overall[1],
+		confusionMatrix(p_2_lda, cv_test2$classe)$overall[1],
+		confusionMatrix(p_3_lda, cv_test3$classe)$overall[1])
+	)
+
+# mean of accuracy for method=J48 across 3-folds
+
+mean( c(        confusionMatrix(p_1_J48, cv_test1$classe)$overall[1],
+		confusionMatrix(p_2_J48, cv_test2$classe)$overall[1],
+		confusionMatrix(p_3_J48, cv_test3$classe)$overall[1])
+	)
+
+```
+
+
+
+## Out-of-sample error estimation:
+
+Lastly, as a measure of what kinds of errors to expect when the final J48 model is used on the testingData, a table is constructed for a final training model using the J48 method.  The table output can be used to determine *Positive Predictive Value*, *Negative Predictive Value*, and overall *Accuracy* of the chosen classification model. 
+
+```{r Out-of-sample error analysis}
+
+set.seed(8888)
+final_model_J48 <- train( model_main.form, method = "J48", data=trainingData)
+pred_final <- predict(final_model_J48, trainingData)
+table(pred_final, trainingData$classe)
+
+```
+
+
+From the table, the predictive value of the model is, 99.8%, 99.4%, 99.2%, 98.8%, and 99.6% for classification "A" through "E" respectively. Finally, the model has an accuracy calculated from the table of 99.4%.
+
+
+
+
